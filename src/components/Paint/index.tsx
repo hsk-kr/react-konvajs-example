@@ -1,13 +1,5 @@
 import { KonvaEventObject } from "konva/lib/Node";
-import React, {
-  ComponentProps,
-  ReactElement,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { ComponentProps, useEffect, useMemo, useState } from "react";
 import {
   Ellipse,
   Image,
@@ -42,6 +34,7 @@ export type PaintRect = {
   key: string;
   strokeColor: string;
   fillColor: string;
+  readonly: boolean;
 };
 
 export type PaintEllipse = {
@@ -53,6 +46,7 @@ export type PaintEllipse = {
   key: string;
   strokeColor: string;
   fillColor: string;
+  readonly: boolean;
 };
 
 export type PaintText = {
@@ -64,6 +58,7 @@ export type PaintText = {
   color: string;
   fontSize: number;
   text: string;
+  readonly: boolean;
 };
 
 export type PaintShape = PaintRect | PaintEllipse | PaintText;
@@ -80,6 +75,7 @@ const Paint = ({
   onDrawEnd,
   onShapeMoveEnd,
   onShapeResizeEnd,
+  onTextInput,
 }: {
   bgImg?: HTMLImageElement;
   drawMode?: CanvasDrawMode;
@@ -89,8 +85,12 @@ const Paint = ({
   onDrawEnd?: (newItem?: PaintShape) => void;
   onShapeMoveEnd?: (index: number, pos: Position) => void;
   onShapeResizeEnd?: (index: number, size: Size) => void;
+  onTextInput?: (index: number, char: string) => void;
 }) => {
-  const [selectedShapeKey, setSelectedShapeKey] = useState<string>();
+  const [selectedShape, setSelectedShape] = useState<{
+    index: number;
+    key: string;
+  }>();
   const [drawTarget, setDrawTarget] = useState<PaintShape>();
 
   const handleCanvasMouseDown: ComponentProps<typeof Stage>["onMouseDown"] = (
@@ -102,7 +102,7 @@ const Paint = ({
     const clickedOnEmpty =
       e.target === e.target.getStage() || "image" in e.target.attrs;
     if (clickedOnEmpty) {
-      setSelectedShapeKey(undefined);
+      setSelectedShape(undefined);
     }
 
     switch (drawMode) {
@@ -116,6 +116,7 @@ const Paint = ({
           key: uuidv4(),
           strokeColor: getRGBFromPenColor(penColor),
           fillColor: getRGBFromPenColor(penColor, 0.3),
+          readonly,
         };
         setDrawTarget(newRect);
         break;
@@ -129,6 +130,7 @@ const Paint = ({
           key: uuidv4(),
           strokeColor: getRGBFromPenColor(penColor),
           fillColor: getRGBFromPenColor(penColor, 0.3),
+          readonly,
         };
         setDrawTarget(newEllipse);
         break;
@@ -144,6 +146,7 @@ const Paint = ({
           key: uuidv4(),
           fontSize,
           color: getRGBFromPenColor(penColor),
+          readonly,
         };
         setDrawTarget(newText);
         break;
@@ -174,16 +177,33 @@ const Paint = ({
     });
   };
 
-  const handleCanvasMouseUp: ComponentProps<typeof Stage>["onMouseUp"] = (
-    e
-  ) => {
+  const handleCanvasMouseUp: ComponentProps<typeof Stage>["onMouseUp"] = () => {
     setDrawTarget(undefined);
     onDrawEnd?.(drawTarget);
   };
 
-  const handleSelect = (_: number, key: string) => {
-    setSelectedShapeKey(key);
+  const handleSelect = (index: number, key: string) => {
+    setSelectedShape({ key, index });
   };
+
+  useEffect(() => {
+    if (!selectedShape) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        setSelectedShape(undefined);
+        return;
+      }
+
+      onTextInput?.(selectedShape.index, e.key);
+    };
+
+    window.addEventListener("keydown", handleKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [onTextInput, selectedShape]);
 
   return (
     <Stage
@@ -206,7 +226,7 @@ const Paint = ({
         />
         <ShapeList
           shapes={shapes}
-          selectedShapeKey={selectedShapeKey}
+          selectedShape={selectedShape}
           onMoveEnd={onShapeMoveEnd}
           onResizeEnd={onShapeResizeEnd}
           onSelect={handleSelect}
@@ -218,13 +238,13 @@ const Paint = ({
 
 const ShapeList = ({
   shapes,
-  selectedShapeKey,
+  selectedShape,
   onMoveEnd,
   onResizeEnd,
   onSelect,
 }: {
   shapes: PaintShape[];
-  selectedShapeKey?: string;
+  selectedShape?: { index: number; key: string };
   onMoveEnd?: (index: number, pos: Position) => void;
   onResizeEnd?: (index: number, size: Size) => void;
   onSelect?: (index: number, key: string) => void;
@@ -246,11 +266,13 @@ const ShapeList = ({
       {shapes.map((shape, shapeIdx) => (
         <Shape
           key={shape.key}
-          selected={selectedShapeKey === shape.key}
+          selected={selectedShape?.key === shape.key}
           shape={shape}
           onMoveEnd={handleMoveEnd(shapeIdx)}
           onResizeEnd={handleResizeEnd(shapeIdx)}
-          onSelect={handleSelect(shapeIdx, shape.key)}
+          onSelect={
+            shape.readonly ? undefined : handleSelect(shapeIdx, shape.key)
+          }
         />
       ))}
     </>
@@ -297,7 +319,6 @@ const Shape = ({
 
       onResizeEnd?.({ width, height });
     };
-
     if (isPaintRect(shape)) {
       return (
         <Rect
@@ -383,7 +404,14 @@ const Shape = ({
         }
         rotateEnabled={false}
       />
-      {border && <Rect {...shape} stroke="black" strokeWidth={1} />}
+      {border && shape && isPaintText(shape) && (
+        <Rect
+          {...shape}
+          height={shape.fontSize}
+          stroke="black"
+          strokeWidth={1}
+        />
+      )}
     </>
   );
 };

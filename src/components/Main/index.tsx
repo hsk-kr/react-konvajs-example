@@ -65,6 +65,25 @@ const Main = () => {
     fileEl.current?.click();
   };
 
+  const handleTextInput = (index: number, char: string) => {
+    console.log("char", char);
+
+    setShapes((prevShapes) => {
+      const newShapes = [...prevShapes];
+
+      const target = newShapes[index];
+      if (isPaintText(target)) {
+        if (char === "Backspace") {
+          target.text = target.text.substring(0, target.text.length - 1);
+        } else {
+          target.text += char;
+        }
+      }
+
+      return newShapes;
+    });
+  };
+
   const handleFileChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     if (!e.target.files || e.target.files.length <= 0) {
       return;
@@ -75,6 +94,7 @@ const Main = () => {
     reader.onloadend = () => {
       const image = new window.Image();
       image.src = (reader.result as string) || "";
+      image.style.transform = "rotate";
       image.addEventListener("load", () => {
         setBgImg(image);
       });
@@ -91,11 +111,7 @@ const Main = () => {
   };
 
   const rotateBackgroundImage = () => {
-    // if (!canvas?.backgroundImage) return;
-    // // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    // const backgroundImage: any = canvas.backgroundImage;
-    // backgroundImage.rotate((backgroundImage.angle + 90) % 360);
-    // canvas.renderAll();
+    alert("not support");
   };
 
   const downloadCanvasAsImage = () => {
@@ -157,6 +173,7 @@ const Main = () => {
         onDrawEnd={handleCanvasDrawEnd}
         onShapeMoveEnd={handleShapeMoveEnd}
         onShapeResizeEnd={handleShapeResizeEnd}
+        onTextInput={handleTextInput}
       />
       <div className="flex justify-between items-center w-1024">
         <div className="flex flex-col gap-y-2">
