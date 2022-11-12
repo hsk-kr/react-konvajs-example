@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/react-konvajs-example/static/css/main.8a7a2cba.css",
+    "main.js": "/react-konvajs-example/static/js/main.b219d9a8.js",
+    "index.html": "/react-konvajs-example/index.html",
+    "main.8a7a2cba.css.map": "/react-konvajs-example/static/css/main.8a7a2cba.css.map",
+    "main.b219d9a8.js.map": "/react-konvajs-example/static/js/main.b219d9a8.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.8a7a2cba.css",
+    "static/js/main.b219d9a8.js"
+  ]
+}
