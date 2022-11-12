@@ -1,5 +1,6 @@
+import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import React, { ComponentProps, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ellipse,
   Image,
@@ -66,175 +67,195 @@ export type PaintShape = PaintRect | PaintEllipse | PaintText;
 export type Position = { x: number; y: number };
 export type Size = { width: number; height: number };
 
-const Paint = ({
-  bgImg,
-  drawMode = "SELECT",
-  penColor = "ORANGE",
-  shapes,
-  readonly = false,
-  onDrawEnd,
-  onShapeMoveEnd,
-  onShapeResizeEnd,
-  onTextInput,
-}: {
-  bgImg?: HTMLImageElement;
-  drawMode?: CanvasDrawMode;
-  penColor?: PenColor;
-  shapes: PaintShape[];
-  readonly?: boolean;
-  onDrawEnd?: (newItem?: PaintShape) => void;
-  onShapeMoveEnd?: (index: number, pos: Position) => void;
-  onShapeResizeEnd?: (index: number, size: Size) => void;
-  onTextInput?: (index: number, char: string) => void;
-}) => {
-  const [selectedShape, setSelectedShape] = useState<{
-    index: number;
-    key: string;
-  }>();
-  const [drawTarget, setDrawTarget] = useState<PaintShape>();
-
-  const handleCanvasMouseDown: ComponentProps<typeof Stage>["onMouseDown"] = (
-    e
+const Paint = React.forwardRef<
+  Konva.Stage,
+  {
+    bgImg?: HTMLImageElement;
+    drawMode?: CanvasDrawMode;
+    penColor?: PenColor;
+    shapes: PaintShape[];
+    readonly?: boolean;
+    bgImgRotation?: number;
+    onDrawEnd?: (newItem?: PaintShape) => void;
+    onShapeMoveEnd?: (index: number, pos: Position) => void;
+    onShapeResizeEnd?: (index: number, size: Size) => void;
+    onTextInput?: (index: number, char: string) => void;
+  }
+>(
+  (
+    {
+      bgImg,
+      drawMode = "SELECT",
+      penColor = "ORANGE",
+      shapes,
+      readonly = false,
+      bgImgRotation = 0,
+      onDrawEnd,
+      onShapeMoveEnd,
+      onShapeResizeEnd,
+      onTextInput,
+    },
+    ref
   ) => {
-    const pos = e.target.getStage()?.getPointerPosition();
-    if (!pos) return;
+    const [selectedShape, setSelectedShape] = useState<{
+      index: number;
+      key: string;
+    }>();
+    const [drawTarget, setDrawTarget] = useState<PaintShape>();
 
-    const clickedOnEmpty =
-      e.target === e.target.getStage() || "image" in e.target.attrs;
-    if (clickedOnEmpty) {
-      setSelectedShape(undefined);
-    }
+    const handleCanvasMouseDown = useCallback(
+      (e: Konva.KonvaEventObject<MouseEvent>) => {
+        const pos = e.target.getStage()?.getPointerPosition();
+        if (!pos) return;
 
-    switch (drawMode) {
-      case "RECT":
-        const newRect: PaintRect = {
-          type: "RECT",
-          x: pos.x,
-          y: pos.y,
-          width: 0,
-          height: 0,
-          key: uuidv4(),
-          strokeColor: getRGBFromPenColor(penColor),
-          fillColor: getRGBFromPenColor(penColor, 0.3),
-          readonly,
-        };
-        setDrawTarget(newRect);
-        break;
-      case "ELLIPSE":
-        const newEllipse: PaintEllipse = {
-          type: "ELLIPSE",
-          x: pos.x,
-          y: pos.y,
-          radiusX: 0,
-          radiusY: 0,
-          key: uuidv4(),
-          strokeColor: getRGBFromPenColor(penColor),
-          fillColor: getRGBFromPenColor(penColor, 0.3),
-          readonly,
-        };
-        setDrawTarget(newEllipse);
-        break;
-      case "TEXT_S":
-      case "TEXT_L":
-        const fontSize = drawMode === "TEXT_S" ? 16 : 32;
-        const newText: PaintText = {
-          type: "TEXT",
-          x: pos.x,
-          y: pos.y,
-          width: 0,
-          text: "TEXT",
-          key: uuidv4(),
-          fontSize,
-          color: getRGBFromPenColor(penColor),
-          readonly,
-        };
-        setDrawTarget(newText);
-        break;
-    }
-  };
+        const clickedOnEmpty =
+          e.target === e.target.getStage() || "image" in e.target.attrs;
+        if (clickedOnEmpty) {
+          setSelectedShape(undefined);
+        }
 
-  const handleCanvasMouseMove: ComponentProps<typeof Stage>["onMouseMove"] = (
-    e
-  ) => {
-    const pos = e.target.getStage()?.getPointerPosition();
-    if (!pos) return;
+        switch (drawMode) {
+          case "RECT":
+            const newRect: PaintRect = {
+              type: "RECT",
+              x: pos.x,
+              y: pos.y,
+              width: 0,
+              height: 0,
+              key: uuidv4(),
+              strokeColor: getRGBFromPenColor(penColor),
+              fillColor: getRGBFromPenColor(penColor, 0.3),
+              readonly,
+            };
+            setDrawTarget(newRect);
+            break;
+          case "ELLIPSE":
+            const newEllipse: PaintEllipse = {
+              type: "ELLIPSE",
+              x: pos.x,
+              y: pos.y,
+              radiusX: 0,
+              radiusY: 0,
+              key: uuidv4(),
+              strokeColor: getRGBFromPenColor(penColor),
+              fillColor: getRGBFromPenColor(penColor, 0.3),
+              readonly,
+            };
+            setDrawTarget(newEllipse);
+            break;
+          case "TEXT_S":
+          case "TEXT_L":
+            const fontSize = drawMode === "TEXT_S" ? 16 : 32;
+            const newText: PaintText = {
+              type: "TEXT",
+              x: pos.x,
+              y: pos.y,
+              width: 0,
+              text: "TEXT",
+              key: uuidv4(),
+              fontSize,
+              color: getRGBFromPenColor(penColor),
+              readonly,
+            };
+            setDrawTarget(newText);
+            break;
+        }
+      },
+      [drawMode, penColor, readonly]
+    );
 
-    setDrawTarget((target) => {
-      if (!target) return target;
+    const handleCanvasMouseMove = useCallback(
+      (e: Konva.KonvaEventObject<MouseEvent>) => {
+        const pos = e.target.getStage()?.getPointerPosition();
+        if (!pos) return;
 
-      const newTarget = { ...target };
-      if (isPaintRect(newTarget)) {
-        newTarget.width = pos.x - target.x;
-        newTarget.height = pos.y - target.y;
-      } else if (isPaintEllipse(newTarget)) {
-        newTarget.radiusX = Math.abs(pos.x - target.x);
-        newTarget.radiusY = Math.abs(pos.y - target.y);
-      } else if (isPaintText(newTarget)) {
-        newTarget.width = pos.x - target.x;
-      }
+        setDrawTarget((target) => {
+          if (!target) return target;
 
-      return newTarget;
-    });
-  };
+          const newTarget = { ...target };
+          if (isPaintRect(newTarget)) {
+            newTarget.width = pos.x - target.x;
+            newTarget.height = pos.y - target.y;
+          } else if (isPaintEllipse(newTarget)) {
+            newTarget.radiusX = Math.abs(pos.x - target.x);
+            newTarget.radiusY = Math.abs(pos.y - target.y);
+          } else if (isPaintText(newTarget)) {
+            newTarget.width = pos.x - target.x;
+          }
 
-  const handleCanvasMouseUp: ComponentProps<typeof Stage>["onMouseUp"] = () => {
-    setDrawTarget(undefined);
-    onDrawEnd?.(drawTarget);
-  };
+          return newTarget;
+        });
+      },
+      []
+    );
 
-  const handleSelect = (index: number, key: string) => {
-    setSelectedShape({ key, index });
-  };
+    const handleCanvasMouseUp = useCallback(() => {
+      setDrawTarget(undefined);
+      onDrawEnd?.(drawTarget);
+    }, [drawTarget, onDrawEnd]);
 
-  useEffect(() => {
-    if (!selectedShape) return;
+    const handleSelect = useCallback((index: number, key: string) => {
+      setSelectedShape({ key, index });
+    }, []);
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        setSelectedShape(undefined);
-        return;
-      }
+    useEffect(() => {
+      if (!selectedShape) return;
 
-      onTextInput?.(selectedShape.index, e.key);
-    };
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+          setSelectedShape(undefined);
+          return;
+        }
 
-    window.addEventListener("keydown", handleKey);
+        onTextInput?.(selectedShape.index, e.key);
+      };
 
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-    };
-  }, [onTextInput, selectedShape]);
+      window.addEventListener("keydown", handleKey);
 
-  return (
-    <Stage
-      width={1024}
-      height={768}
-      className="border-solid border-2 border-gray-300"
-      onMouseDown={handleCanvasMouseDown}
-      onMouseMove={handleCanvasMouseMove}
-      onMouseUp={handleCanvasMouseUp}
-    >
-      {bgImg && (
+      return () => {
+        window.removeEventListener("keydown", handleKey);
+      };
+    }, [onTextInput, selectedShape]);
+
+    return (
+      <Stage
+        ref={ref}
+        width={1024}
+        height={768}
+        className="border-solid border-2 border-gray-300"
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+      >
+        {bgImg && (
+          <Layer>
+            <Image
+              image={bgImg}
+              offsetX={bgImg.width / 2}
+              offsetY={bgImg.height / 2}
+              x={bgImg.width / 2}
+              y={bgImg.height / 2}
+              rotation={bgImgRotation}
+            />
+          </Layer>
+        )}
         <Layer>
-          <Image image={bgImg} />
+          <Shape
+            shape={drawTarget}
+            border={drawTarget && isPaintText(drawTarget)}
+          />
+          <ShapeList
+            shapes={shapes}
+            selectedShape={selectedShape}
+            onMoveEnd={onShapeMoveEnd}
+            onResizeEnd={onShapeResizeEnd}
+            onSelect={handleSelect}
+          />
         </Layer>
-      )}
-      <Layer>
-        <Shape
-          shape={drawTarget}
-          border={drawTarget && isPaintText(drawTarget)}
-        />
-        <ShapeList
-          shapes={shapes}
-          selectedShape={selectedShape}
-          onMoveEnd={onShapeMoveEnd}
-          onResizeEnd={onShapeResizeEnd}
-          onSelect={handleSelect}
-        />
-      </Layer>
-    </Stage>
-  );
-};
+      </Stage>
+    );
+  }
+);
 
 const ShapeList = ({
   shapes,
@@ -249,17 +270,26 @@ const ShapeList = ({
   onResizeEnd?: (index: number, size: Size) => void;
   onSelect?: (index: number, key: string) => void;
 }) => {
-  const handleMoveEnd = (index: number) => (pos: Position) => {
-    onMoveEnd?.(index, pos);
-  };
+  const handleMoveEnd = useCallback(
+    (index: number) => (pos: Position) => {
+      onMoveEnd?.(index, pos);
+    },
+    [onMoveEnd]
+  );
 
-  const handleResizeEnd = (index: number) => (size: Size) => {
-    onResizeEnd?.(index, size);
-  };
+  const handleResizeEnd = useCallback(
+    (index: number) => (size: Size) => {
+      onResizeEnd?.(index, size);
+    },
+    [onResizeEnd]
+  );
 
-  const handleSelect = (index: number, key: string) => () => {
-    onSelect?.(index, key);
-  };
+  const handleSelect = useCallback(
+    (index: number, key: string) => () => {
+      onSelect?.(index, key);
+    },
+    [onSelect]
+  );
 
   return (
     <>
@@ -294,8 +324,10 @@ const Shape = ({
   onMoveEnd?: (pos: Position) => void;
   onResizeEnd?: (size: Size) => void;
 }) => {
-  const [node, setNode] = useState<any>();
-  const trRef: ComponentProps<typeof Transformer>["ref"] = React.useRef(null);
+  const [node, setNode] = useState<
+    Konva.Rect | Konva.Ellipse | Konva.Text | null
+  >();
+  const trRef = React.useRef<Konva.Transformer>(null);
 
   const shapeComp = useMemo(() => {
     if (!shape) return null;

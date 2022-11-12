@@ -1,4 +1,5 @@
-import { ChangeEventHandler, useEffect, useRef, useState } from "react";
+import { ChangeEventHandler, useCallback, useRef, useState } from "react";
+import Konva from "konva";
 
 import ColorButton from "../ColorButton";
 import Button from "../Button";
@@ -20,17 +21,19 @@ const Main = () => {
   const [bgImg, setBgImg] = useState<HTMLImageElement>();
   const fileEl = useRef<HTMLInputElement>(null);
   const textAreaEl = useRef<HTMLTextAreaElement>(null);
+  const stageEl = useRef<Konva.Stage>(null);
+  const [bgImgRotation, setBgImgRotation] = useState(0);
 
   const handleDrawModeChange = (drawMode: CanvasDrawMode) => () => {
     setDrawMode(drawMode);
   };
 
-  const handleCanvasDrawEnd = (newShape?: PaintShape) => {
+  const handleCanvasDrawEnd = useCallback((newShape?: PaintShape) => {
     setDrawMode("SELECT");
     if (newShape) setShapes((prevShapes) => prevShapes.concat(newShape));
-  };
+  }, []);
 
-  const handleShapeMoveEnd = (index: number, pos: Position) => {
+  const handleShapeMoveEnd = useCallback((index: number, pos: Position) => {
     setShapes((prevShapes) => {
       const newShapes = [...prevShapes];
 
@@ -39,9 +42,9 @@ const Main = () => {
 
       return newShapes;
     });
-  };
+  }, []);
 
-  const handleShapeResizeEnd = (index: number, size: Size) => {
+  const handleShapeResizeEnd = useCallback((index: number, size: Size) => {
     setShapes((prevShapes) => {
       const newShapes = [...prevShapes];
 
@@ -59,15 +62,13 @@ const Main = () => {
 
       return newShapes;
     });
-  };
+  }, []);
 
   const handleUploadImageClick = () => {
     fileEl.current?.click();
   };
 
-  const handleTextInput = (index: number, char: string) => {
-    console.log("char", char);
-
+  const handleTextInput = useCallback((index: number, char: string) => {
     setShapes((prevShapes) => {
       const newShapes = [...prevShapes];
 
@@ -82,7 +83,7 @@ const Main = () => {
 
       return newShapes;
     });
-  };
+  }, []);
 
   const handleFileChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     if (!e.target.files || e.target.files.length <= 0) {
@@ -94,7 +95,6 @@ const Main = () => {
     reader.onloadend = () => {
       const image = new window.Image();
       image.src = (reader.result as string) || "";
-      image.style.transform = "rotate";
       image.addEventListener("load", () => {
         setBgImg(image);
       });
@@ -111,65 +111,65 @@ const Main = () => {
   };
 
   const rotateBackgroundImage = () => {
-    alert("not support");
+    setBgImgRotation((prevRotation) => (prevRotation + 90) % 360);
   };
 
   const downloadCanvasAsImage = () => {
-    //   if (!canvas) return;
-    //   const a = document.createElement("a");
-    //   a.href = canvas.toDataURL({
-    //     format: "jpeg",
-    //     quality: 0.8,
-    //   });
-    //   a.download = "canvas.jpeg";
-    //   a.click();
-    //   a.remove();
-  };
-
-  const handleJSONImport = () => {
-    //   if (!canvas || !textAreaEl.current) return;
-    //   const json = JSON.parse(textAreaEl.current.value);
-    //   canvas.loadFromJSON(json, () => {
-    //     canvas.renderAll();
-    //   });
+    if (!stageEl.current) return;
+    const a = document.createElement("a");
+    a.href = stageEl.current.toDataURL({
+      quality: 0.8,
+    });
+    a.download = "canvas.jpeg";
+    a.click();
+    a.remove();
   };
 
   const handleJSONExport = () => {
-    // if (!canvas || !textAreaEl.current) return;
-    // const json = JSON.stringify(canvas.toJSON());
-    // textAreaEl.current.value = json;
+    if (!textAreaEl.current) return;
+
+    textAreaEl.current.value = JSON.stringify({
+      bgImgSrc: bgImg?.src,
+      bgImgRotation,
+      shapes,
+    });
   };
 
-  useEffect(() => {
-    // const canvas = new fabric.Canvas(canvasEl.current);
-    // setCanvas(canvas);
-    // const handleKey = (e: KeyboardEvent) => {
-    //   if (e.key === "Delete") {
-    //     const object = canvas.getActiveObject();
-    //     if (object) canvas.remove(object);
-    //   }
-    // };
-    // window.addEventListener("keyup", handleKey);
-    // return () => {
-    //   setCanvas(undefined);
-    //   canvas.dispose();
-    //   window.removeEventListener("keyup", handleKey);
-    // };
-  }, []);
+  const handleJSONImport = () => {
+    if (!textAreaEl.current) return;
 
-  // useEffect(() => {
-  //   if (!canvas) return;
-  //   canvas.selection = drawMode === "SELECT";
-  // }, [drawMode, canvas]);
+    try {
+      const data: {
+        bgImgSrc?: string;
+        bgImgRotation: number;
+        shapes: PaintShape[];
+      } = JSON.parse(textAreaEl.current.value);
+
+      if (data.bgImgSrc) {
+        const image = new window.Image();
+        image.src = data.bgImgSrc;
+        image.addEventListener("load", () => {
+          setBgImg(image);
+        });
+      }
+
+      setBgImgRotation(data.bgImgRotation);
+      setShapes(data.shapes);
+    } catch {
+      alert("Falied to import JSON");
+    }
+  };
 
   return (
     <div className="w-screen mx-auto mt-8 items-center justify-center flex flex-col gap-y-6">
       <Paint
+        ref={stageEl}
         bgImg={bgImg}
         shapes={shapes}
         drawMode={drawMode}
         penColor={penColor}
         readonly={readonly}
+        bgImgRotation={bgImgRotation}
         onDrawEnd={handleCanvasDrawEnd}
         onShapeMoveEnd={handleShapeMoveEnd}
         onShapeResizeEnd={handleShapeResizeEnd}
